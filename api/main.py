@@ -9,7 +9,9 @@ from langchain_community.llms import HuggingFaceHub
 from langchain.prompts import ChatPromptTemplate
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
-from custom_agent import create_custom_tools_agent, process_query
+from langchain_community.document_loaders import PyPDFDirectoryLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from custom_agent import create_custom_tools_agent, process_query, get_custom_tools, search_data_in_es
 from disgenet import get_disease_associated_genes, get_gene_associated_diseases
 from functools import lru_cache
 import json
@@ -181,9 +183,10 @@ def fetch_and_process_clinvar_data(disease):
 
 @app.on_event("startup")
 async def startup_event():
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    # embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2") # This instance is not directly used elsewhere
     vectors = load_documents_and_vectors()
     app.state.vectors = vectors
+    app.state.tools = get_custom_tools() # Initialize tools using the function from custom_agent
 
 @app.post("/ask")
 async def ask_question(request: Request):
@@ -195,7 +198,7 @@ async def ask_question(request: Request):
     if not question:
         return {"error": "No se proporcionó pregunta."}
 
-    translator = Translator()
+    # Use the global translator instance
     question_en = translator.translate(question, dest='en').text
 
     # Clasificar la pregunta
@@ -204,16 +207,31 @@ async def ask_question(request: Request):
     if question_type == "avanzado":
         # Buscar información técnica en Elasticsearch y ClinVar
         disease = extract_disease_from_question(question_en)
-        es_results = process_query(disease, "es") # Llamada a la búsqueda en Elasticsearch
+        # Use search_data_in_es directly instead of process_query for Elasticsearch results
+        es_search_hits = search_data_in_es(index_name="genetic_information", query=disease)
         clinvar_results = fetch_and_process_clinvar_data(disease)
         
         # Preparar contexto para el modelo
-        context = "\n".join([
-            f"Disease: {result['_source']['disease']}, Gene: {result['_source']['gene']}, Mutation: {result['_source']['mutation']}, Description: {result['_source']['description']}"
-            for result in es_results
-        ])
+        context_parts = []
+        if es_search_hits:
+            for hit in es_search_hits:
+                source = hit.get('_source', {})
+                context_parts.append(
+                    f"Disease: {source.get('disease', 'N/A')}, Gene: {source.get('gene', 'N/A')}, "
+                    f"Mutation: {source.get('mutation', 'N/A')}, Description: {source.get('description', 'N/A')}"
+                )
+
+        context = "\n".join(context_parts)
         
         if clinvar_results:
+            context += "\n" # Add a separator if there's already ES context
+            context += "\n".join([
+                f"Gene: {record['gene']}, Mutation: {record['mutation']}, Description: {record['description']}"
+                for record in clinvar_results
+            ])
+
+        model = medical_model
+    elif question_type == "intermedio":
             context += "\n" + "\n".join([
                 f"Gene: {record['gene']}, Mutation: {record['mutation']}, Description: {record['description']}"
                 for record in clinvar_results
@@ -248,13 +266,15 @@ async def ask_question(request: Request):
     else:
         # Si no se puede clasificar la pregunta, usar el modelo general para intentar responder
         model = general_model
-        input_data = {
-            "input": question_en,
-            "context": "No se pudo clasificar la pregunta. Intenta proporcionar una respuesta general."
-        }
-        response = model.invoke(input_data)
+        current_context = "No se pudo clasificar la pregunta. Intenta proporcionar una respuesta general."
+        formatted_prompt_str = prompt.format_prompt(
+            context=current_context,
+            input=question_en
+        ).to_string()
+        raw_response = model.invoke(formatted_prompt_str)
 
-        response_es = translator.translate(response['output'], dest='es').text
+        # Assuming the response from HuggingFaceHub is a direct string output
+        response_es = translator.translate(raw_response, dest='es').text
 
         if "no lo sé" in response_es.lower() or "no entiendo" in response_es.lower():
             response_es = "Lo siento, no entiendo la pregunta. Por favor, intente formularla de otra manera."
@@ -265,13 +285,17 @@ async def ask_question(request: Request):
         return {"answer": response_es, "context": input_data["context"], "processing_time": processing_time}
 
     # Generar la respuesta usando el modelo seleccionado
-    input_data = {
-        "input": question_en,
-        "context": context
-    }
-    response = model.invoke(input_data)
+    # Format the prompt using the global prompt template
+    formatted_prompt_str = prompt.format_prompt(
+        context=context,
+        input=question_en
+    ).to_string()
 
-    response_es = translator.translate(response['output'], dest='es').text
+    raw_response = model.invoke(formatted_prompt_str)
+
+    # Assuming the response from HuggingFaceHub is a direct string output
+    # If it's a structure, this might need adjustment (e.g., response.content)
+    response_es = translator.translate(raw_response, dest='es').text
 
     end_time = time.time()
     processing_time = end_time - start_time
@@ -288,11 +312,5 @@ async def gene_diseases(disease_id: str):
     data = get_gene_associated_diseases(disease_id)
     return data
 
-@cache.cached(ttl=3600)
-async def load_documents():
-    try:
-        pdf_loader = PyPDFDirectoryLoader(PDF_DIRECTORY_PATH)
-        return pdf_loader.load()
-    except Exception as e:
-        print(f"Error cargando documentos: {e}")
-        return []
+# Global translator instance
+translator = Translator()
