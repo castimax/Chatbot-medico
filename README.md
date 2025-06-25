@@ -30,11 +30,17 @@ Para una explicación detallada de las arquitecturas y diferencias, consulta el 
     ```bash
     python -m venv venv
     source venv/bin/activate  # En Windows: venv\Scripts\activate
-    pip install -r requirements.txt
-    # Nota: Asegúrate que requirements.txt esté actualizado e incluya:
-    # fastapi uvicorn streamlit langchain langchain_community langchain_groq langchain_elasticsearch googletrans beautifulsoup4 elasticsearch aiocache ollama huggingface_hub faiss-cpu sentence-transformers python-dotenv aioredis
     ```
-    (Si `requirements.txt` no está en la raíz, ajusta la ruta, por ejemplo `requirements/requirements.txt` si es el caso).
+    A continuación, instala las dependencias para la versión que desees utilizar (o ambas):
+
+    **Para Version 1 (Principal/Avanzada):**
+    ```bash
+    pip install -r requirements/requirements_v1_main.txt
+    ```
+    **Para Version 2 (Variante/Simplificada):**
+    ```bash
+    pip install -r requirements/requirements_v2_variant.txt
+    ```
 
 ## Configuración de Variables de Entorno
 
