@@ -1,23 +1,40 @@
 import streamlit as st
 import requests
-import aioredis
 import asyncio
 from aiocache import Cache
 from aiocache.serializers import JsonSerializer
 
-# Configuración inicial de aiocache para usar Redis
-async def get_cache():
-    redis = await aioredis.create_redis_pool("redis://localhost:6379")
-    cache = Cache(Cache.REDIS, endpoint="localhost", port=6379, namespace="main", redis=redis, serializer=JsonSerializer())
-    return cache
+# Initialize Cache object once globally.
+# aiocache.Cache constructor is synchronous. Async operations are its methods.
+# It will manage its own connection to Redis.
+try:
+    global_cache = Cache(
+        Cache.REDIS,
+        endpoint="localhost",
+        port=6379,
+        namespace="main",
+        serializer=JsonSerializer()
+    )
+except Exception as e:
+    st.error(f"Failed to initialize cache: {e}. Caching will be disabled.")
+    global_cache = None
 
 async def get_response_from_cache(prompt):
-    cache = await get_cache()
-    return await cache.get(prompt)
+    if not global_cache:
+        return None
+    try:
+        return await global_cache.get(prompt)
+    except Exception as e:
+        st.warning(f"Cache read error: {e}. Fetching from API.")
+        return None
 
 async def set_response_to_cache(prompt, response_data):
-    cache = await get_cache()
-    await cache.set(prompt, response_data, ttl=60*60)  # Cachear por 1 hora
+    if not global_cache:
+        return
+    try:
+        await global_cache.set(prompt, response_data, ttl=60*60)  # Cachear por 1 hora
+    except Exception as e:
+        st.warning(f"Cache write error: {e}.")
 
 async def fetch_response(prompt):
     with st.spinner("Procesando la pregunta..."):
@@ -50,12 +67,16 @@ if st.button("Obtener respuesta"):
     
     st.write("Respuesta:")
     with st.spinner("Generando la respuesta..."):
-        st.write(response_data['respuesta'])
+        st.write(response_data.get('answer', "No se encontró respuesta.")) # Use .get for safety
 
     with st.expander("Detalles adicionales"):
         st.write("Contexto:")
-        for step in response_data["contexto"]:
-            st.write(step)
+        context_data = response_data.get('context', "No hay contexto adicional.") # Use .get for safety
+        if isinstance(context_data, list):
+            for step in context_data:
+                st.write(step)
+        else:
+            st.write(context_data) # Display directly if it's not a list
 
     st.success("¡Respuesta generada con éxito!")
     st.balloons()
