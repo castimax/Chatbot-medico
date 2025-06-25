@@ -104,37 +104,63 @@ Asegúrate que los servicios externos necesarios (Elasticsearch para V1, Ollama 
     *   Coloca el archivo CSV en `VARIANT_CSV_PATH`.
     *   Coloca el archivo JSON en `VARIANT_JSON_PATH`.
 
-## Diagrama de Flujo del Proceso
+## Arquitectura y Flujo de Datos
 
-<!--
-El diagrama de flujo actual necesita una revisión exhaustiva para representar adecuadamente
-las arquitecturas de AMBAS versiones V1 y V2, o ser reemplazado por diagramas individuales
-o una referencia a API_VERSIONS_EXPLAINED.md.
+A continuación, se presentan diagramas simplificados para cada versión. Para una explicación más exhaustiva, consulta `API_VERSIONS_EXPLAINED.md`.
+
+### Version 1 (Principal/Avanzada) - Flujo Simplificado
 
 ```mermaid
 graph TD
-    A[Inicio: Usuario accede a la aplicación Streamlit] --> B[Usuario ingresa pregunta en español]
-    B --> C[Pregunta enviada a la API FastAPI]
-    C --> D[Traducción de la pregunta al inglés usando Google Translate]
-    D --> E[Agente personalizado recibe la pregunta traducida]
-    E --> F{Tipo de pregunta}
-    F --> |Pregunta general| G[Búsqueda en Wikipedia]
-    F --> |Pregunta médica específica| H[Búsqueda en documentos médicos]
-    F --> |Pregunta sobre estudios científicos| I[Búsqueda en Arxiv]
-    G --> J[Compilación de resultados de Wikipedia]
-    H --> K[Compilación de resultados de documentos médicos]
-    I --> L[Compilación de resultados de Arxiv]
-    J --> M[Generación de respuesta en inglés utilizando el modelo Ollama 3 LLM]
-    K --> M
-    L --> M
-    M --> N[Traducción de la respuesta al español usando Google Translate]
-    N --> O[Respuesta traducida al español devuelta a la interfaz de usuario de Streamlit]
-    O --> P[Respuesta en español mostrada al usuario]
-    P --> Q[Expansión: Detalles adicionales y contexto utilizado]
-```
--->
-Para un entendimiento detallado del flujo y la arquitectura de cada versión, por favor consulta `API_VERSIONS_EXPLAINED.md`.
+    A[Usuario acceda a Streamlit V1 (streamlit_app.py)] --> B{Ingresa Pregunta}
+    B --> C[API V1: main.py (/ask)]
+    C --> D{Clasifica Pregunta}
 
+    D -- "Básico" --> E[Agente Langchain (custom_agent.py)]
+    E --> F[Herramientas: Wikipedia, Arxiv, Mayo Clinic, ClinVar API]
+    F --> G[LLM ChatGroq (General)]
+    G --> H[Respuesta Procesada]
+
+    D -- "Intermedio" --> I[RAG desde PDFs (FAISS)]
+    I --> J[Contexto de Documentos]
+    J --> K[LLM ChatGroq (Médico)]
+    K --> H
+
+    D -- "Avanzado" --> L[Consulta Elasticsearch y ClinVar API (directo)]
+    L --> M[Contexto Estructurado]
+    M --> K
+
+    H --> N[Traduce al Español (si es necesario)]
+    N --> O[Respuesta a Streamlit V1]
+    O --> P[Muestra Respuesta al Usuario]
+```
+
+### Version 2 (Variante/Simplificada) - Flujo Simplificado
+
+```mermaid
+graph TD
+    A_v2[Usuario acceda a Streamlit V2 (streamlit_variant_app.py)] --> B_v2{Ingresa Pregunta}
+    B_v2 --> C_v2[API V2: main_variant_ollama.py (/ask)]
+
+    C_v2 --> D_v2[Vector Store FAISS (PDF, CSV, JSON) con OllamaEmbeddings]
+    D_v2 --> E_v2[Herramienta Retriever de Documentos]
+
+    C_v2 --> F_v2[Agente Langchain (custom_agent_groq_variant.py - create_custom_tools_agent)]
+
+    F_v2 --> G_v2{Herramientas del Agente}
+    G_v2 --> E_v2
+    G_v2 --> H_v2[Wikipedia]
+    G_v2 --> I_v2[Mayo Clinic (Scraper Local)]
+    G_v2 --> J_v2[ClinVar (Scraper Local)]
+
+    F_v2 --> K_v2[LLM ChatGroq (ydshieh/tiny-random-gptj-for-question-answering)]
+    K_v2 --> L_v2[Respuesta Procesada]
+    L_v2 --> M_v2[Traduce al Español (si es necesario)]
+    M_v2 --> N_v2[Respuesta a Streamlit V2]
+    N_v2 --> O_v2[Muestra Respuesta al Usuario]
+```
+
+Para un entendimiento detallado del flujo y la arquitectura de cada versión, por favor consulta `API_VERSIONS_EXPLAINED.md`.
 
 ## Contacto y Soporte
 Si tienes alguna pregunta o encuentras algún problema, no dudes en abrir un *issue* en este repositorio.
