@@ -1,105 +1,174 @@
+# Chatbot con FastAPI, Streamlit y LangChain (Versiones V1 y V2)
 
-# Chatbot con FastAPI, Streamlit y LangChain
+Este repositorio contiene dos versiones coexistentes de un chatbot desarrollado utilizando FastAPI, Streamlit y LangChain. Ambas versiones utilizan modelos de lenguaje de `ChatGroq`.
 
-Este repositorio contiene un chatbot desarrollado utilizando FastAPI, Streamlit y LangChain, junto con los modelos de lenguaje Ollama 3 y un LLM genérico. El chatbot puede responder preguntas basadas en documentos proporcionados en formatos PDF, CSV y JSON, y utiliza herramientas adicionales como Wikipedia y Arxiv para proporcionar respuestas más completas.
+*   **Version 1 (Principal/Avanzada)**: Ofrece una funcionalidad completa con múltiples fuentes de datos (Elasticsearch, DisGeNET, PDFs vía RAG con `HuggingFaceEmbeddings`, ClinVar API) y un agente con diversas herramientas.
+*   **Version 2 (Variante/Simplificada)**: Se enfoca en RAG a partir de documentos locales (PDF, CSV, JSON) utilizando `OllamaEmbeddings` y un agente más simple.
 
-![Arquitectura del Chatbot](/documentos_y_matcomplement/diagramas_graficos/readme.jpg)
+Para una explicación detallada de las arquitecturas y diferencias, consulta el archivo `API_VERSIONS_EXPLAINED.md`.
 
-## Requisitos previos
-- Python 3.7 o superior
-- Redis (opcional, para configuraciones avanzadas de caché)
+<!--
+    La imagen de arquitectura actual podría necesitar una revisión o ser reemplazada para reflejar ambas versiones.
+    ![Arquitectura del Chatbot](/documentos_y_matcomplement/diagramas_graficos/readme.jpg)
+-->
+
+## Requisitos Previos
+- Python 3.8 o superior (actualizado para compatibilidad con dependencias recientes de Langchain)
+- Redis (opcional, para caché en las aplicaciones Streamlit)
+- Ollama (para la Version 2, si se usan `OllamaEmbeddings` localmente)
+- Elasticsearch (para la Version 1)
 
 ## Instalación
 
-Clonar el repositorio y navegar al directorio del proyecto:
-```
-git clone https://github.com/tu-usuario/nombre-del-repositorio.git
-cd nombre-del-repositorio
-```
+1.  **Clonar el repositorio:**
+    ```bash
+    git clone https://github.com/tu-usuario/nombre-del-repositorio.git # Reemplaza con tu URL de repo
+    cd nombre-del-repositorio
+    ```
 
-Instalar las dependencias:
-```
-pip install -r requirements/requirements2.txt
-```
+2.  **Crear un entorno virtual e instalar dependencias:**
+    ```bash
+    python -m venv venv
+    source venv/bin/activate  # En Windows: venv\Scripts\activate
+    ```
+    A continuación, instala las dependencias para la versión que desees utilizar (o ambas):
 
-## Configuración
+    **Para Version 1 (Principal/Avanzada):**
+    ```bash
+    pip install -r requirements/requirements_v1_main.txt
+    ```
+    **Para Version 2 (Variante/Simplificada):**
+    ```bash
+    pip install -r requirements/requirements_v2_variant.txt
+    ```
 
-### Configurar las variables de entorno
-Crear un archivo `.env` en el directorio raíz y añadir la clave API:
-```
-GROQ_API_KEY=TU_CLAVE_API_GROQ
-```
+## Configuración de Variables de Entorno
 
-### Caché
-El sistema utiliza `aiocache` para caché en memoria, mejorando la eficiencia y la velocidad de respuesta del sistema. La configuración por defecto es suficiente para la mayoría de los casos, pero se puede configurar para usar Redis si se requiere persistencia y rendimiento mejorado.
+Crea un archivo `.env` en el directorio raíz del proyecto y añade las siguientes variables según sea necesario:
 
-## Configuración Avanzada de Caché con Redis
+### Comunes para Ambas Versiones
+*   `GROQ_API_KEY`: Tu clave API de Groq (requerida).
+*   `HUGGING_FACE_API_TOKEN`: Tu token de Hugging Face API (usado por V1 para `HuggingFaceEmbeddings`).
+*   `STREAMLIT_REDIS_URL`: URL de tu instancia Redis para la caché de las apps Streamlit (ej. `redis://localhost:6379`). Ambas apps Streamlit pueden usar esta variable y gestionarán namespaces de caché distintos (`main_cache` y `streamlit_variant_cache`).
 
-La aplicación está preparada para utilizar Redis como un sistema de caché para mejorar el rendimiento al almacenar respuestas frecuentes y reducir la carga en los servidores. Para habilitar esta funcionalidad, sigue estos pasos:
+### Específicas para Version 1 (Principal/Avanzada - `api/main.py`)
+*   `GROQ_GENERAL_MODEL_NAME`: (Opcional) Modelo Groq para tareas generales (defecto: `mixtral-8x7b-32768`).
+*   `GROQ_MEDICAL_MODEL_NAME`: (Opcional) Modelo Groq para tareas médicas (defecto: `mixtral-8x7b-32768`).
+*   `PDF_DIRECTORY_PATH`: Ruta al directorio con PDFs para el RAG de V1 (ej. `./data/main_app_pdfs/`).
+*   `ELASTICSEARCH_ENDPOINT`: Endpoint de Elasticsearch (ej. `tu-endpoint.es.cloud.region.amazonaws.com`).
+*   `ELASTICSEARCH_USERNAME`: Usuario de Elasticsearch.
+*   `ELASTICSEARCH_PASSWORD`: Contraseña de Elasticsearch.
+*   `MAIN_API_URL`: (Opcional, para Streamlit V1) URL del backend V1 (defecto: `http://localhost:8000/ask`).
 
-### Instalación de Redis
+### Específicas para Version 2 (Variante/Simplificada - `api/main_variant_ollama.py`)
+*   `OLLAMA_BASE_URL`: (Opcional) URL base si tu instancia Ollama no corre en `http://localhost:11434`.
+*   `VARIANT_PDF_PATH`: (Opcional) Ruta al directorio de PDFs para el RAG de V2 (defecto: `./data/variant_docs/pdf/`).
+*   `VARIANT_CSV_PATH`: (Opcional) Ruta al archivo CSV para el RAG de V2 (defecto: `./data/variant_docs/docs.csv`).
+*   `VARIANT_JSON_PATH`: (Opcional) Ruta al archivo JSON para el RAG de V2 (defecto: `./data/variant_docs/docs.json`).
+*   `VARIANT_API_URL`: (Opcional, para Streamlit V2) URL del backend V2 (defecto: `http://localhost:8001/ask`).
 
-1. **Instalar Redis en tu sistema local o servidor:**
-   - Puedes descargar Redis desde [la página oficial](https://redis.io/download) o utilizar un servicio gestionado de Redis proporcionado por servicios de hosting como Heroku, Amazon Web Services, o Google Cloud Platform.
+## Caché
 
-2. **Configuración de Redis:**
-   - Asegúrate de que Redis está corriendo en tu sistema y toma nota del puerto y la dirección IP (usualmente `localhost` en el puerto `6379`).
+Ambas aplicaciones FastAPI (`main.py` y `main_variant_ollama.py`) utilizan `aiocache` para caché en memoria por defecto para ciertas operaciones.
+Las aplicaciones Streamlit (`streamlit_app.py` y `streamlit_variant_app.py`) pueden usar Redis para una caché más persistente y compartida si `STREAMLIT_REDIS_URL` está configurado. Cada app Streamlit usa un namespace de caché diferente para evitar colisiones.
 
-### Configurar Redis en la Aplicación
+## Uso y Ejecución
 
-Para utilizar Redis como backend de caché:
+Asegúrate que los servicios externos necesarios (Elasticsearch para V1, Ollama para V2) estén en ejecución.
 
-1. **Descomenta las líneas en `streamlit_app.py` relacionadas con `aioredis` y `aiocache`.**
-   - Estas líneas conectan la aplicación con tu instancia de Redis y configuran `aiocache` para usar Redis como almacenamiento de caché.
+### Ejecutar Version 1 (Principal/Avanzada)
 
-2. **Ajusta las variables de conexión a Redis si es necesario.**
-   - Si estás utilizando una configuración no estándar o un servicio gestionado de Redis, ajusta las variables de conexión en el código para reflejar tu configuración específica.
+1.  **Iniciar Backend V1 (`api/main.py`):**
+    ```bash
+    uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+    ```
+2.  **Iniciar Frontend V1 (`api/streamlit_app.py`):**
+    (En una nueva terminal)
+    ```bash
+    streamlit run api/streamlit_app.py
+    ```
 
-### Dependencias
+### Ejecutar Version 2 (Variante/Simplificada)
 
-Asegúrate de que `aioredis` y `aiocache` están instalados. Si no están presentes en tu entorno, instálalos usando:
+1.  **Iniciar Backend V2 (`api/main_variant_ollama.py`):**
+    ```bash
+    uvicorn api.main_variant_ollama:app --host 0.0.0.0 --port 8001 --reload
+    ```
+2.  **Iniciar Frontend V2 (`api/streamlit_variant_app.py`):**
+    (En una nueva terminal)
+    ```bash
+    streamlit run api/streamlit_variant_app.py
+    ```
 
-```
-pip install aioredis aiocache
-```
+## Configuración de Datos
 
-## Uso de la API
+*   **Version 1 (`main.py`):**
+    *   Coloca los documentos PDF en el directorio especificado por `PDF_DIRECTORY_PATH`.
+    *   Asegúrate que Elasticsearch esté poblado con datos en el índice `genetic_information` si la funcionalidad "avanzada" que lo requiere será utilizada.
+*   **Version 2 (`main_variant_ollama.py`):**
+    *   Coloca los documentos PDF en el directorio `VARIANT_PDF_PATH`.
+    *   Coloca el archivo CSV en `VARIANT_CSV_PATH`.
+    *   Coloca el archivo JSON en `VARIANT_JSON_PATH`.
 
-Ejecutar la aplicación FastAPI:
-```
-uvicorn main:app --reload
-```
-La API estará disponible en `http://localhost:8000`.
+## Arquitectura y Flujo de Datos
 
-Ejecutar la interfaz de usuario de Streamlit:
-```
-streamlit run streamlit_app.py
-```
+A continuación, se presentan diagramas simplificados para cada versión. Para una explicación más exhaustiva, consulta `API_VERSIONS_EXPLAINED.md`.
 
-## Diagrama de Flujo del Proceso
+### Version 1 (Principal/Avanzada) - Flujo Simplificado
+
 ```mermaid
 graph TD
-    A[Inicio: Usuario accede a la aplicación Streamlit] --> B[Usuario ingresa pregunta en español]
-    B --> C[Pregunta enviada a la API FastAPI]
-    C --> D[Traducción de la pregunta al inglés usando Google Translate]
-    D --> E[Agente personalizado recibe la pregunta traducida]
-    E --> F{Tipo de pregunta}
-    F --> |Pregunta general| G[Búsqueda en Wikipedia]
-    F --> |Pregunta médica específica| H[Búsqueda en documentos médicos]
-    F --> |Pregunta sobre estudios científicos| I[Búsqueda en Arxiv]
-    G --> J[Compilación de resultados de Wikipedia]
-    H --> K[Compilación de resultados de documentos médicos]
-    I --> L[Compilación de resultados de Arxiv]
-    J --> M[Generación de respuesta en inglés utilizando el modelo Ollama 3 LLM]
-    K --> M
-    L --> M
-    M --> N[Traducción de la respuesta al español usando Google Translate]
-    N --> O[Respuesta traducida al español devuelta a la interfaz de usuario de Streamlit]
-    O --> P[Respuesta en español mostrada al usuario]
-    P --> Q[Expansión: Detalles adicionales y contexto utilizado]
+    A["Usuario acceda a Streamlit V1 (streamlit_app.py)"] --> B{"Ingresa Pregunta"}
+    B --> C["API V1: main.py (/ask)"]
+    C --> D{"Clasifica Pregunta"}
+
+    D -- "Básico" --> E["Agente Langchain (custom_agent.py)"]
+    E --> F["Herramientas: Wikipedia, Arxiv, Mayo Clinic, ClinVar API"]
+    F --> G["LLM ChatGroq (General)"]
+    G --> H["Respuesta Procesada"]
+
+    D -- "Intermedio" --> I["RAG desde PDFs (FAISS)"]
+    I --> J["Contexto de Documentos"]
+    J --> K["LLM ChatGroq (Médico)"]
+    K --> H
+
+    D -- "Avanzado" --> L["Consulta Elasticsearch y ClinVar API (directo)"]
+    L --> M["Contexto Estructurado"]
+    M --> K
+
+    H --> N["Traduce al Español (si es necesario)"]
+    N --> O["Respuesta a Streamlit V1"]
+    O --> P["Muestra Respuesta al Usuario"]
 ```
 
-## Contacto y Soporte
-Si tienes alguna pregunta o encuentras algún problema, no dudes en abrir un issue en este repositorio.
+### Version 2 (Variante/Simplificada) - Flujo Simplificado
 
-¡Disfruta usando el chatbot!
+```mermaid
+graph TD
+    A_v2["Usuario acceda a Streamlit V2 (streamlit_variant_app.py)"] --> B_v2{"Ingresa Pregunta"}
+    B_v2 --> C_v2["API V2: main_variant_ollama.py (/ask)"]
+
+    C_v2 --> D_v2["Vector Store FAISS (PDF, CSV, JSON) con OllamaEmbeddings"]
+    D_v2 --> E_v2["Herramienta Retriever de Documentos"]
+
+    C_v2 --> F_v2["Agente Langchain (custom_agent_groq_variant.py - create_custom_tools_agent)"]
+
+    F_v2 --> G_v2{"Herramientas del Agente"}
+    G_v2 --> E_v2
+    G_v2 --> H_v2["Wikipedia"]
+    G_v2 --> I_v2["Mayo Clinic (Scraper Local)"]
+    G_v2 --> J_v2["ClinVar (Scraper Local)"]
+
+    F_v2 --> K_v2["LLM ChatGroq (ydshieh/tiny-random-gptj-for-question-answering)"]
+    K_v2 --> L_v2["Respuesta Procesada"]
+    L_v2 --> M_v2["Traduce al Español (si es necesario)"]
+    M_v2 --> N_v2["Respuesta a Streamlit V2"]
+    N_v2 --> O_v2["Muestra Respuesta al Usuario"]
+```
+
+Para un entendimiento detallado del flujo y la arquitectura de cada versión, por favor consulta `API_VERSIONS_EXPLAINED.md`.
+
+## Contacto y Soporte
+Si tienes alguna pregunta o encuentras algún problema, no dudes en abrir un *issue* en este repositorio.
+
+¡Disfruta usando los chatbots!

@@ -1,3 +1,26 @@
+"""
+Main FastAPI application for the Health and Wellness Assistant.
+
+Features:
+- Handles different types of questions ("basico", "intermedio", "avanzado").
+- "basico": Uses a Langchain agent with tools (Wikipedia, Arxiv, Mayo Clinic, ClinVar API).
+- "intermedio": Augments context with RAG from PDF documents (FAISS vector store)
+                 before calling the LLM.
+- "avanzado": Builds context from Elasticsearch and ClinVar API data before calling the LLM.
+- Language Models: Uses ChatGroq (configurable model names via environment variables).
+- Embeddings: Uses HuggingFaceEmbeddings for PDF processing.
+- Vector Store: FAISS for PDF documents.
+- Data Sources: PDFs, Elasticsearch, DisGeNET API, ClinVar API, Mayo Clinic (via custom_agent).
+- Caching: In-memory cache for /ask endpoint responses.
+
+Key Environment Variables:
+- GROQ_API_KEY: Required for ChatGroq LLMs.
+- GROQ_GENERAL_MODEL_NAME: Model for general queries (default: mixtral-8x7b-32768).
+- GROQ_MEDICAL_MODEL_NAME: Model for medical queries (default: mixtral-8x7b-32768).
+- PDF_DIRECTORY_PATH: Path to directory containing PDF files for FAISS store.
+- HUGGING_FACE_API_TOKEN: For HuggingFaceEmbeddings.
+- ELASTICSEARCH_ENDPOINT, ELASTICSEARCH_USERNAME, ELASTICSEARCH_PASSWORD: For ES connection.
+"""
 import os
 import time
 from fastapi import FastAPI, Request
@@ -5,11 +28,12 @@ from dotenv import load_dotenv
 from aiocache import Cache
 from aiocache.serializers import JsonSerializer
 from googletrans import Translator
-from langchain_community.llms import HuggingFaceHub
+from langchain_groq import ChatGroq # Changed from HuggingFaceHub
 from langchain.prompts import ChatPromptTemplate
-from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.embeddings import HuggingFaceEmbeddings # Stays as HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
-from custom_agent import create_custom_tools_agent, process_query
+# Import get_custom_tools for direct use, search_data_in_es, and optionally fetch_clinvar_data
+from custom_agent import create_custom_tools_agent, get_custom_tools, search_data_in_es, fetch_clinvar_data as agent_fetch_clinvar_data
 from disgenet import get_disease_associated_genes, get_gene_associated_diseases
 from functools import lru_cache
 import json
@@ -88,11 +112,21 @@ def load_documents_and_vectors():
 
 @lru_cache
 def get_general_model():
-    return HuggingFaceHub(repo_id="LLaMA-3", model_kwargs={"temperature": 0.7}, huggingfacehub_api_token=HUGGING_FACE_API_TOKEN)
+    return ChatGroq(
+        model_name=os.getenv("GROQ_GENERAL_MODEL_NAME", "mixtral-8x7b-32768"),
+        groq_api_key=GROQ_API_KEY,
+        temperature=0.7
+    )
 
 @lru_cache
 def get_medical_model():
-    return HuggingFaceHub(repo_id="Med-PaLM-2", model_kwargs={"temperature": 0.7}, huggingfacehub_api_token=HUGGING_FACE_API_TOKEN)
+    # Ideally, this would be a medically tuned model available via Groq.
+    # Using a general model as a placeholder.
+    return ChatGroq(
+        model_name=os.getenv("GROQ_MEDICAL_MODEL_NAME", "mixtral-8x7b-32768"),
+        groq_api_key=GROQ_API_KEY,
+        temperature=0.7
+    )
 
 general_model = get_general_model()
 medical_model = get_medical_model()
@@ -131,53 +165,9 @@ def extract_disease_from_question(question):
             return disease
     return "unknown"
 
-def fetch_clinvar_data(disease):
-    esearch_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=clinvar&term={disease}[disease/phenotype]+risk&retmode=json"
-    esearch_response = requests.get(esearch_url)
-    if esearch_response.status_code == 200:
-        esearch_result = esearch_response.json()
-        ids = esearch_result["esearchresult"]["idlist"]
-        
-        if ids:
-            esummary_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=clinvar&id={','.join(ids)}&retmode=json"
-            esummary_response = requests.get(esummary_url)
-            if esummary_response.status_code == 200:
-                return esummary_response.json()
-    return None
-
-def process_clinvar_data(data):
-    records = []
-    if data:
-        for uid in data['result']['uids']:
-            record = data['result'][uid]
-            gene_info = 'N/A'
-            if "genes" in record:
-                genes = record["genes"]
-                if genes:
-                    gene_info = genes[0].get('symbol', 'N/A')
-            
-            mutation_info = 'N/A'
-            if "variation_set" in record:
-                variations = record["variation_set"]
-                if variations:
-                    mutation_info = variations[0].get('variation_name', 'N/A')
-            
-            description = record.get("description", "No description available.")
-            if description == "N/A":
-                description = record.get("summary", "No additional information provided.")
-            
-            record_data = {
-                "gene": gene_info,
-                "mutation": mutation_info,
-                "description": description
-            }
-            
-            records.append(record_data)
-    return records
-
-def fetch_and_process_clinvar_data(disease):
-    raw_data = fetch_clinvar_data(disease)
-    return process_clinvar_data(raw_data)
+# Removed local fetch_clinvar_data and process_clinvar_data.
+# Will use agent_fetch_clinvar_data from custom_agent.py for the "avanzado" path if raw data is needed,
+# or rely on the ClinVar tool within the agent for "basico" path.
 
 @app.on_event("startup")
 async def startup_event():
@@ -203,48 +193,58 @@ async def ask_question(request: Request):
 
     if question_type == "avanzado":
         # Buscar información técnica en Elasticsearch y ClinVar
-        disease = extract_disease_from_question(question_en)
-        es_results = process_query(disease, "es") # Llamada a la búsqueda en Elasticsearch
-        clinvar_results = fetch_and_process_clinvar_data(disease)
+        # Assuming 'disease' extracted could be a disease name or a gene symbol for advanced queries.
+        term_for_search = extract_disease_from_question(question_en) # This might be a disease or gene
         
-        # Preparar contexto para el modelo
-        context = "\n".join([
-            f"Disease: {result['_source']['disease']}, Gene: {result['_source']['gene']}, Mutation: {result['_source']['mutation']}, Description: {result['_source']['description']}"
-            for result in es_results
-        ])
+        es_hits = search_data_in_es(index_name, term_for_search)
+        es_context_list = [
+            f"ES Result: Disease: {hit['_source'].get('disease', 'N/A')}, Gene: {hit['_source'].get('gene', 'N/A')}, Mutation: {hit['_source'].get('mutation', 'N/A')}, Description: {hit['_source'].get('description', 'N/A')}"
+            for hit in es_hits
+        ]
+        context = "\n".join(es_context_list)
         
-        if clinvar_results:
-            context += "\n" + "\n".join([
-                f"Gene: {record['gene']}, Mutation: {record['mutation']}, Description: {record['description']}"
-                for record in clinvar_results
-            ])
+        # For ClinVar, agent_fetch_clinvar_data expects a gene symbol.
+        # If term_for_search is a disease, we might need to find associated genes first.
+        # For simplicity, if term_for_search is considered a gene for ClinVar:
+        # This is a simplification; robust gene extraction/mapping from question needed.
+        clinvar_text_summary = agent_fetch_clinvar_data(term_for_search) # term_for_search ideally is a gene here
+        if clinvar_text_summary and "No se encontró información" not in clinvar_text_summary and "No se encontraron IDs" not in clinvar_text_summary :
+            context += f"\nClinVar Summary for {term_for_search}:\n{clinvar_text_summary}"
         
         model = medical_model
     elif question_type == "intermedio":
-        # Usar información de la Clínica Mayo y la guía médica en PDF
-        disease = extract_disease_from_question(question_en)
-        context = f"Información sobre {disease} de fuentes confiables."
+        # Usar información de la Clínica Mayo y la guía médica en PDF (vector store)
+        disease_extracted = extract_disease_from_question(question_en)
+        # Example: Augment with FAISS context for intermediate questions
+        sim_docs = app.state.vectors.similarity_search(f"Información sobre {disease_extracted}")
+        pdf_context = "\n".join([doc.page_content for doc in sim_docs])
+        context = f"Información sobre {disease_extracted} de fuentes confiables y documentos:\n{pdf_context}"
         model = medical_model
     elif question_type == "basico":
-        # Usar Wikipedia y Arxiv para información general
-        tools = app.state.tools
-        context = "Información general sobre salud."
-        model = general_model
-        agent = create_custom_tools_agent(model, tools, prompt)
+        # Usar el agente con herramientas (Wikipedia, Arxiv, Mayo Clinic, ClinVar API)
+        # Cache the final response dictionary
+        cached_response_data = await cache.get(question_en)
+        if cached_response_data and all(k in cached_response_data for k in ['answer', 'context', 'processing_time']):
+            return cached_response_data
+
+        tools = get_custom_tools() # Get tools from custom_agent.py
+        agent_model = general_model # Use the general_model (ChatGroq)
         
-        cached_response = await cache.get(question_en)
-        if cached_response:
-            response = cached_response
-        else:
-            response = agent.invoke({'input': question_en})
-            await cache.set(question_en, response, ttl=3600)
-        
-        response_es = translator.translate(response['output'], dest='es').text
+        # The prompt for the agent is defined in main.py for this path
+        agent = create_custom_tools_agent(agent_model, tools, prompt)
+
+        agent_response = agent.invoke({'input': question_en})
+
+        response_es = translator.translate(agent_response['output'], dest='es').text
+        intermediate_steps = agent_response.get("intermediate_steps", [])
 
         end_time = time.time()
         processing_time = end_time - start_time
 
-        return {"answer": response_es, "context": response["intermediate_steps"], "processing_time": processing_time}
+        final_response_data = {"answer": response_es, "context": intermediate_steps, "processing_time": processing_time}
+        await cache.set(question_en, final_response_data, ttl=3600) # Cache the whole dict
+
+        return final_response_data
     else:
         # Si no se puede clasificar la pregunta, usar el modelo general para intentar responder
         model = general_model

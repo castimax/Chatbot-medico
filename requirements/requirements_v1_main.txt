@@ -1,0 +1,34 @@
+# Core Application & Web Framework
+fastapi>=0.100.0
+uvicorn[standard]>=0.20.0
+streamlit>=1.20.0
+python-dotenv>=1.0.0
+
+# Langchain Core & Community
+langchain~=0.1.17
+langchain-community~=0.0.35
+langchain-groq~=0.1.3
+
+# LLM & Embeddings related
+sentence-transformers>=2.2.0
+huggingface-hub>=0.19.0
+
+# Vector Stores
+faiss-cpu
+
+# Data Sources & Tools
+elasticsearch>=8.0.0,<9.0.0
+requests>=2.25.0
+beautifulsoup4>=4.9.0
+pypdf>=3.15.0
+googletrans==4.0.0rc1
+wikipedia>=1.4.0
+arxiv>=1.4.0
+
+# Caching
+aiocache>=0.12.0
+aioredis>=2.0.0
+
+# Kept from previous file, review if strictly needed by current V1 code
+sse_starlette
+groq # Groq Python SDK (distinct from langchain-groq)
