@@ -118,52 +118,52 @@ A continuación, se presentan diagramas simplificados para cada versión. Para u
 
 ```mermaid
 graph TD
-    A[Usuario acceda a Streamlit V1 (streamlit_app.py)] --> B{Ingresa Pregunta}
-    B --> C[API V1: main.py (/ask)]
-    C --> D{Clasifica Pregunta}
+    A["Usuario acceda a Streamlit V1 (streamlit_app.py)"] --> B{"Ingresa Pregunta"}
+    B --> C["API V1: main.py (/ask)"]
+    C --> D{"Clasifica Pregunta"}
 
-    D -- "Básico" --> E[Agente Langchain (custom_agent.py)]
-    E --> F[Herramientas: Wikipedia, Arxiv, Mayo Clinic, ClinVar API]
-    F --> G[LLM ChatGroq (General)]
-    G --> H[Respuesta Procesada]
+    D -- "Básico" --> E["Agente Langchain (custom_agent.py)"]
+    E --> F["Herramientas: Wikipedia, Arxiv, Mayo Clinic, ClinVar API"]
+    F --> G["LLM ChatGroq (General)"]
+    G --> H["Respuesta Procesada"]
 
-    D -- "Intermedio" --> I[RAG desde PDFs (FAISS)]
-    I --> J[Contexto de Documentos]
-    J --> K[LLM ChatGroq (Médico)]
+    D -- "Intermedio" --> I["RAG desde PDFs (FAISS)"]
+    I --> J["Contexto de Documentos"]
+    J --> K["LLM ChatGroq (Médico)"]
     K --> H
 
-    D -- "Avanzado" --> L[Consulta Elasticsearch y ClinVar API (directo)]
-    L --> M[Contexto Estructurado]
+    D -- "Avanzado" --> L["Consulta Elasticsearch y ClinVar API (directo)"]
+    L --> M["Contexto Estructurado"]
     M --> K
 
-    H --> N[Traduce al Español (si es necesario)]
-    N --> O[Respuesta a Streamlit V1]
-    O --> P[Muestra Respuesta al Usuario]
+    H --> N["Traduce al Español (si es necesario)"]
+    N --> O["Respuesta a Streamlit V1"]
+    O --> P["Muestra Respuesta al Usuario"]
 ```
 
 ### Version 2 (Variante/Simplificada) - Flujo Simplificado
 
 ```mermaid
 graph TD
-    A_v2[Usuario acceda a Streamlit V2 (streamlit_variant_app.py)] --> B_v2{Ingresa Pregunta}
-    B_v2 --> C_v2[API V2: main_variant_ollama.py (/ask)]
+    A_v2["Usuario acceda a Streamlit V2 (streamlit_variant_app.py)"] --> B_v2{"Ingresa Pregunta"}
+    B_v2 --> C_v2["API V2: main_variant_ollama.py (/ask)"]
 
-    C_v2 --> D_v2[Vector Store FAISS (PDF, CSV, JSON) con OllamaEmbeddings]
-    D_v2 --> E_v2[Herramienta Retriever de Documentos]
+    C_v2 --> D_v2["Vector Store FAISS (PDF, CSV, JSON) con OllamaEmbeddings"]
+    D_v2 --> E_v2["Herramienta Retriever de Documentos"]
 
-    C_v2 --> F_v2[Agente Langchain (custom_agent_groq_variant.py - create_custom_tools_agent)]
+    C_v2 --> F_v2["Agente Langchain (custom_agent_groq_variant.py - create_custom_tools_agent)"]
 
-    F_v2 --> G_v2{Herramientas del Agente}
+    F_v2 --> G_v2{"Herramientas del Agente"}
     G_v2 --> E_v2
-    G_v2 --> H_v2[Wikipedia]
-    G_v2 --> I_v2[Mayo Clinic (Scraper Local)]
-    G_v2 --> J_v2[ClinVar (Scraper Local)]
+    G_v2 --> H_v2["Wikipedia"]
+    G_v2 --> I_v2["Mayo Clinic (Scraper Local)"]
+    G_v2 --> J_v2["ClinVar (Scraper Local)"]
 
-    F_v2 --> K_v2[LLM ChatGroq (ydshieh/tiny-random-gptj-for-question-answering)]
-    K_v2 --> L_v2[Respuesta Procesada]
-    L_v2 --> M_v2[Traduce al Español (si es necesario)]
-    M_v2 --> N_v2[Respuesta a Streamlit V2]
-    N_v2 --> O_v2[Muestra Respuesta al Usuario]
+    F_v2 --> K_v2["LLM ChatGroq (ydshieh/tiny-random-gptj-for-question-answering)"]
+    K_v2 --> L_v2["Respuesta Procesada"]
+    L_v2 --> M_v2["Traduce al Español (si es necesario)"]
+    M_v2 --> N_v2["Respuesta a Streamlit V2"]
+    N_v2 --> O_v2["Muestra Respuesta al Usuario"]
 ```
 
 Para un entendimiento detallado del flujo y la arquitectura de cada versión, por favor consulta `API_VERSIONS_EXPLAINED.md`.
