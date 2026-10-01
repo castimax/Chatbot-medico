@@ -1,0 +1,67 @@
+TÍTULO: Fragmento didáctico — Sepsis / alerta precoz para taller de IA en salud
+ETIQUETA: MATERIAL DIDÁCTICO DE LIBRE CIRCULACIÓN — taller UNIR
+AVISO: Simulación docente basada en Sepsis-3 y Surviving Sepsis Campaign 2026. No sustituye guías oficiales, protocolos del centro ni valoración clínica.
+FECHA DIDÁCTICA: 2026-10-01
+
+1. DEFINICIÓN Y MARCO CLÍNICO
+- Sepsis es una disfunción orgánica potencialmente mortal causada por una respuesta desregulada del huésped a una infección.
+- En Sepsis-3, la disfunción orgánica se operacionaliza como un aumento agudo de SOFA ≥2 puntos atribuible a la infección.
+- El shock séptico es un subconjunto de sepsis con alteraciones circulatorias y metabólicas más profundas.
+- La sepsis es un diagnóstico clínico: ningún biomarcador o prueba aislada debe confirmarla o descartarla por sí sola.
+
+2. DETECCIÓN / CRIBADO: QUÉ PUEDE MIRAR UNA ALERTA
+Una alerta clínica de sepsis puede integrar, según el sistema y el protocolo local:
+- constantes: frecuencia respiratoria, presión arterial, frecuencia cardiaca, temperatura y saturación de oxígeno;
+- estado mental / cambios neurológicos;
+- datos de perfusión y diuresis cuando estén disponibles;
+- laboratorio relacionado con disfunción orgánica: lactato, creatinina, bilirrubina, plaquetas y otros parámetros definidos por el centro;
+- sospecha o evidencia de infección y evolución temporal de las variables.
+- En pacientes agudos hospitalizados, la SSC 2026 recomienda NEWS/NEWS2, MEWS o SIRS sobre qSOFA como herramienta ÚNICA de cribado.
+- qSOFA puede aportar información pronóstica, pero no debe usarse como único filtro para descartar sepsis.
+
+3. QUÉ DEBE REVISAR EL EQUIPO TRAS UNA ALERTA
+- Reevaluar clínicamente al paciente y comprobar que los datos que dispararon la alerta son reales y actuales.
+- Revisar signos de infección y de nueva disfunción orgánica.
+- Comprobar constantes, estado mental, perfusión y evolución clínica.
+- Revisar lactato cuando esté indicado.
+- Obtener hemocultivos lo antes posible y, cuando sea factible, antes de antimicrobianos.
+- Identificar o confirmar el posible foco infeccioso.
+- Activar el circuito / Código Sepsis local y escalar al profesional responsable según gravedad.
+- Documentar hora de alerta, validación humana, decisiones y evolución.
+- La sepsis y el shock séptico son emergencias médicas; la evaluación y las medidas asistenciales indicadas por el protocolo deben iniciarse con rapidez.
+- Este fragmento NO prescribe un tratamiento automático ni sustituye la decisión clínica.
+
+4. CASO DOCENTE DEL TALLER
+Paciente FICTICIO:
+- temperatura 38,6 °C;
+- frecuencia cardiaca 112 lpm;
+- sospecha de infección;
+- lactato elevado;
+- alerta precoz generada por un sistema de apoyo.
+
+La salida esperada de un asistente educativo NO es “diagnosticar sepsis”, sino:
+- explicar qué variables podrían haber contribuido a la alerta;
+- señalar que la alerta requiere validación clínica;
+- enumerar qué elementos del Código Sepsis/protocolo local deben revisarse;
+- diferenciar observación, interpretación y decisión profesional.
+
+5. SEGURIDAD DE UNA ALERTA DE IA
+- UMBRAL: validación local del umbral y del rendimiento en la población del centro.
+- FALSAS ALARMAS: registrar falsos positivos y medir fatiga de alertas.
+- AUTOMATION BIAS: impedir que la alerta se convierta en una orden automática.
+- RESPONSABLE: definir quién recibe, valida, escala y cierra la alerta.
+- TRAZABILIDAD: registrar variables, hora, versión del modelo, decisión humana y resultado.
+- MONITORIZACIÓN: revisar rendimiento, deriva y efectos adversos.
+- FALLBACK: mantener un circuito clínico seguro si el sistema de IA no está disponible.
+
+6. LÍMITES
+- Este documento es un fragmento didáctico y no contiene un protocolo hospitalario completo.
+- No proporciona dosis ni pautas individualizadas.
+- No cubre pediatría, embarazo ni todos los escenarios de shock.
+- Ante discrepancia, prevalecen la guía oficial vigente, el protocolo local y el criterio del equipo asistencial.
+
+FUENTES DE REFERENCIA
+- SCCM / ESICM. Surviving Sepsis Campaign: International Guidelines for Management of Sepsis and Septic Shock 2026.
+  https://www.sccm.org/survivingsepsiscampaign/guidelines-and-resources/surviving-sepsis-campaign-adult-guidelines
+- Singer M, Deutschman CS, Seymour CW, et al. The Third International Consensus Definitions for Sepsis and Septic Shock (Sepsis-3). JAMA. 2016;315(8):801-810.
+  https://jamanetwork.com/journals/jama/fullarticle/2492881
